@@ -1,0 +1,24 @@
+/**
+ * AUTO-GENERATED FILE.
+ * Do not edit manually.
+ */
+
+const implementation =
+  require('../../controllers/{{{classname}}}');
+
+{{#operations}}
+{{#operation}}
+const {{operationId}} = async (request, response, next) => {
+  return implementation.{{operationId}}(request, response, next);
+};
+
+{{/operation}}
+{{/operations}}
+
+module.exports = {
+{{#operations}}
+{{#operation}}
+  {{operationId}},
+{{/operation}}
+{{/operations}}
+};

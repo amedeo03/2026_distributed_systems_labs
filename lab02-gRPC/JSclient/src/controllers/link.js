@@ -27,6 +27,7 @@ module.exports.addToFilm = function addToFilm(response) {
 
       if (film.private == false) {
         representation.reviews = '/api/films/public/' + film.id + '/reviews';
+        representation.images = '/api/films/public/' + film.id + '/images';
       }
 
       return representation;
@@ -41,6 +42,7 @@ module.exports.addToFilm = function addToFilm(response) {
 
   if (response.private == false) {
     representation.reviews = '/api/films/public/' + response.id + '/reviews';
+    representation.images = '/api/films/public/' + response.id + '/images';
   }
 
   return representation;
@@ -83,5 +85,25 @@ module.exports.addToReview = function addToReview(response) {
   return {
     ...response,
     self: '/api/films/public/' + response.filmId + '/reviews/' + response.reviewerId
+  };
+};
+
+module.exports.addToImage = function addToImage(response) {
+  if (response == null) {
+    return response;
+  }
+
+  if (Array.isArray(response)) {
+    return response.map(function (image) {
+      return {
+        ...image,
+        self: '/api/films/public/' + image.filmId + '/images/' + image.id
+      };
+    });
+  }
+
+  return {
+    ...response,
+    self: '/api/films/public/' + response.filmId + '/images/' + response.id
   };
 };
