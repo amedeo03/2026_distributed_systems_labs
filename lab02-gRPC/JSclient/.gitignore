@@ -1,0 +1,11 @@
+node_modules/
+
+generated/
+
+*.db-shm
+*.db-wal
+*.db-journal
+
+.DS_Store
+.vscode/
+.idea/
