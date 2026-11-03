@@ -1,162 +1,143 @@
-import conversion.*;
-import io.grpc.stub.StreamObserver;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.imageio.ImageIO;
+import conversion.ConversionReply;
+import conversion.ConversionRequest;
+import conversion.ConverterGrpc;
+import conversion.MetadataReply;
 import com.google.protobuf.ByteString;
-
+import io.grpc.stub.StreamObserver;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 
 public final class Converter extends ConverterGrpc.ConverterImplBase {
 
 	private static final Logger logger = Logger.getLogger(Converter.class.getName());
-	
+
+	private static final Set<String> SUPPORTED_TYPES = Set.of("png", "jpg", "gif");
+
+	private static final int CHUNK_SIZE = 1024; // 1KB
 
 	@Override
 	public StreamObserver<ConversionRequest> fileConvert(final StreamObserver<ConversionReply> responseObserver) {
-		
-		  final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	      final AtomicBoolean completed = new AtomicBoolean(false);
-	      final StringBuffer typeOrigin = new StringBuffer("");
-	      final StringBuffer typeTarget = new StringBuffer("");
-	      final StringBuffer errorMessage = new StringBuffer("");
-	      final AtomicBoolean success = new AtomicBoolean(true);
+		// gRPC never invokes the methods of a single StreamObserver concurrently, so plain fields are enough
+		return new StreamObserver<ConversionRequest>() {
+			private final ByteArrayOutputStream received = new ByteArrayOutputStream();
+			private String typeOrigin = "";
+			private String typeTarget = "";
+			private String errorMessage = null;
 
-	      return new StreamObserver<ConversionRequest>() {
-	            @Override
-	            public void onNext(ConversionRequest dataChunk) {
-	            	
-	            	if(success.get()) {
-	            		try {
-		            		switch(dataChunk.getRequestOneofCase().getNumber()) {
-				            	//meta data information is received
-				            	case ConversionRequest.META_FIELD_NUMBER : {
-				            		typeOrigin.append(dataChunk.getMeta().getFileTypeOrigin());
-				            		typeTarget.append(dataChunk.getMeta().getFileTypeTarget());
-				            	}
-				            	//file chunk is received
-				            	case ConversionRequest.FILE_FIELD_NUMBER : {
-					                   baos.write(dataChunk.getFile().toByteArray());
-				            	}	
-		            		}
-		            	} catch (IOException e) {
-		                    logger.log(Level.INFO,"error on write to byte array stream", e);
-		                    onError(e);
-		                } catch(Exception e) {
-		                	logger.log(Level.INFO,"error on receiving the file", e);
-		                    onError(e);
-		                }
-	            	}
-	            }
-
-	            @Override
-	            public void onError(Throwable t) {
-	                logger.log(Level.INFO, "error in receiving the file", t);
-	                success.set(false);
-	            }
-
-	            @Override
-	            public void onCompleted() {
-	                logger.log(Level.INFO, "file has been received!");
-	                completed.compareAndSet(false, true);
-	               
-	                //check if media types are supported
-	                if(!typeOrigin.toString().equalsIgnoreCase("png") && !typeOrigin.toString().equalsIgnoreCase("jpg")
-	    	        		&& !typeOrigin.toString().equalsIgnoreCase("gif") && !typeTarget.toString().equalsIgnoreCase("png") && !typeTarget.toString().equalsIgnoreCase("jpg") 
-	    	        		&& !typeTarget.toString().equalsIgnoreCase("gif") 
-	    	        		) {
-	    	        	logger.log(Level.INFO, "media type not supported!");
-	    	        	success.set(false);
-	    	        }
-
-	                //conversion
-	    	        ByteArrayOutputStream baosImageToSend = new ByteArrayOutputStream();
-	    	        if(success.get()) {
-	    				try {
-	    					byte[] bytes = baos.toByteArray();
-	    				    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-	    				    BufferedImage imageReceived;
-	    					imageReceived = ImageIO.read(bais);
-	    					if(imageReceived.getColorModel().getTransparency() != Transparency.OPAQUE) {
-	    						imageReceived = fillTransparentPixels(imageReceived, Color.WHITE);
-	    					}
-	    				    ImageIO.write(imageReceived, typeTarget.toString(), baosImageToSend);   
-	    				} catch (IOException e) {
-	    					success.set(false);
-	    					e.printStackTrace();
-	    				}
-	    	        }
-	    	        
-	    			
-	    			//send back
-	    	       
-	    			
-	    			//Case 1: success
-	    			if(success.get()) {
-	    				logger.log(Level.INFO, "conversion has been successful!");
-	    				responseObserver.onNext(ConversionReply.newBuilder()
-	    			            .setMeta(MetadataReply.newBuilder().setSuccess(true))
-	    			            .build());
-	    				
-	    				BufferedInputStream bisImageToSend = new BufferedInputStream(new ByteArrayInputStream(baosImageToSend.toByteArray()));
-
-	    	            int bufferSize = 1 * 1024; // 1KB
-	    	            byte[] buffer = new byte[bufferSize];
-	    	            int length;
-	    	            try {
-	    					while ((length = bisImageToSend.read(buffer, 0, bufferSize)) != -1) {
-	    					    responseObserver.onNext(ConversionReply.newBuilder()
-	    					            .setFile(ByteString.copyFrom(buffer, 0, length))
-	    					            .build());
-	    					}
-	    				} catch (IOException e) {
-	    					e.printStackTrace();
-	    					responseObserver.onError(e);
-	    				}
-	    	            try {
-							bisImageToSend.close();
-						} catch (IOException e) {
-							e.printStackTrace();
-							responseObserver.onError(e);
+			@Override
+			public void onNext(ConversionRequest dataChunk) {
+				if (errorMessage != null) {
+					return;
+				}
+				try {
+					switch (dataChunk.getRequestOneofCase()) {
+						// metadata information is received
+						case META -> {
+							typeOrigin = dataChunk.getMeta().getFileTypeOrigin().toLowerCase(Locale.ROOT);
+							typeTarget = dataChunk.getMeta().getFileTypeTarget().toLowerCase(Locale.ROOT);
 						}
-	    	            
-	    			} 
-	    			
-	    			//Case 2: error
-	    			else {
-	    				logger.log(Level.INFO, "conversion has failed!");
-	    				responseObserver.onNext(ConversionReply.newBuilder()
-	    			            .setMeta(MetadataReply.newBuilder()
-	    			            .setSuccess(false)
-	    			            .setError(errorMessage.toString()))
-	    			            .build());
-	    			}
-	    			
-	    			responseObserver.onCompleted();
-	                           
-	            }
-	        };     
-	}; 
-	
-	
-	public static BufferedImage fillTransparentPixels( BufferedImage image, Color fillColor ) {
+						// file chunk is received
+						case FILE -> dataChunk.getFile().writeTo(received);
+						case REQUESTONEOF_NOT_SET -> { }
+					}
+				} catch (IOException e) {
+					logger.log(Level.INFO, "error on receiving the file", e);
+					errorMessage = "error on receiving the file";
+				}
+			}
+
+			@Override
+			public void onError(Throwable t) {
+				// the client cancelled or the call broke: no reply can be delivered anymore
+				logger.log(Level.INFO, "error in receiving the file", t);
+			}
+
+			@Override
+			public void onCompleted() {
+				logger.log(Level.INFO, "file has been received!");
+
+				byte[] converted = null;
+				if (errorMessage == null) {
+					try {
+						converted = convert(received.toByteArray(), typeOrigin, typeTarget);
+					} catch (ConversionException e) {
+						logger.log(Level.INFO, "conversion has failed!", e);
+						errorMessage = e.getMessage();
+					} catch (IOException e) {
+						logger.log(Level.INFO, "conversion has failed!", e);
+						errorMessage = "the image could not be converted: " + e;
+					}
+				}
+
+				if (converted != null) {
+					logger.log(Level.INFO, "conversion has been successful!");
+					responseObserver.onNext(ConversionReply.newBuilder()
+							.setMeta(MetadataReply.newBuilder().setSuccess(true))
+							.build());
+					for (int offset = 0; offset < converted.length; offset += CHUNK_SIZE) {
+						int length = Math.min(CHUNK_SIZE, converted.length - offset);
+						responseObserver.onNext(ConversionReply.newBuilder()
+								.setFile(ByteString.copyFrom(converted, offset, length))
+								.build());
+					}
+				} else {
+					responseObserver.onNext(ConversionReply.newBuilder()
+							.setMeta(MetadataReply.newBuilder()
+									.setSuccess(false)
+									.setError(errorMessage))
+							.build());
+				}
+				responseObserver.onCompleted();
+			}
+		};
+	}
+
+	/**
+	 * Converts an image between the supported media types, filling transparent pixels with white.
+	 */
+	static byte[] convert(byte[] image, String typeOrigin, String typeTarget) throws ConversionException, IOException {
+		if (!SUPPORTED_TYPES.contains(typeOrigin) || !SUPPORTED_TYPES.contains(typeTarget)) {
+			throw new ConversionException("media type not supported: " + typeOrigin + " -> " + typeTarget);
+		}
+		BufferedImage imageReceived = ImageIO.read(new ByteArrayInputStream(image));
+		if (imageReceived == null) {
+			throw new ConversionException("the received file is not a valid image");
+		}
+		if (imageReceived.getColorModel().getTransparency() != Transparency.OPAQUE) {
+			imageReceived = fillTransparentPixels(imageReceived, Color.WHITE);
+		}
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		if (!ImageIO.write(imageReceived, typeTarget, output)) {
+			throw new ConversionException("no " + typeTarget + " writer is able to encode the image");
+		}
+		return output.toByteArray();
+	}
+
+	public static BufferedImage fillTransparentPixels(BufferedImage image, Color fillColor) {
 		int w = image.getWidth();
 		int h = image.getHeight();
-		BufferedImage image2 = new BufferedImage(w, h, 
-		BufferedImage.TYPE_INT_RGB);
+		BufferedImage image2 = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
 		Graphics2D g = image2.createGraphics();
 		g.setColor(fillColor);
-		g.fillRect(0,0,w,h);
+		g.fillRect(0, 0, w, h);
 		g.drawRenderedImage(image, null);
 		g.dispose();
 		return image2;
 	}
-};
+
+	static final class ConversionException extends Exception {
+		ConversionException(String message) {
+			super(message);
+		}
+	}
+}

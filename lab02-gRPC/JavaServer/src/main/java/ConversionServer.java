@@ -4,8 +4,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A server that hosts the Converter service, plus infrastructure services like health and reflection.
- *
+ * A server that hosts the Converter service.
  */
 public final class ConversionServer {
   public static void main(String[] args) throws IOException, InterruptedException {
@@ -15,20 +14,18 @@ public final class ConversionServer {
         .build()
         .start();
     System.out.println("Listening on port " + port);
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        server.shutdown();
-        try {
-          if (!server.awaitTermination(30, TimeUnit.SECONDS)) {
-            server.shutdownNow();
-            server.awaitTermination(5, TimeUnit.SECONDS);
-          }
-        } catch (InterruptedException ex) {
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      server.shutdown();
+      try {
+        if (!server.awaitTermination(30, TimeUnit.SECONDS)) {
           server.shutdownNow();
+          server.awaitTermination(5, TimeUnit.SECONDS);
         }
+      } catch (InterruptedException ex) {
+        server.shutdownNow();
+        Thread.currentThread().interrupt();
       }
-    });
+    }));
     server.awaitTermination();
   }
 }
