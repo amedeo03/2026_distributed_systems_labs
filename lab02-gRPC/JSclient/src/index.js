@@ -20,6 +20,9 @@ require('./passport-config');
 const serverPort = 3001;
 const app = express();
 
+// web frontend (same origin as the REST API, so the session cookie is sent with every request)
+app.use(express.static(path.join(__dirname, '../public')));
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -92,7 +95,7 @@ app.use((err, req, res, next) => {
 db.ready
   .then(() => {
     http.createServer(app).listen(serverPort, () => {
-      console.log(`Server listening on http://localhost:${serverPort}\nSwagger UI available at http://localhost:${serverPort}/docs`);
+      console.log(`Server listening on http://localhost:${serverPort}\nWeb frontend available at http://localhost:${serverPort}/\nSwagger UI available at http://localhost:${serverPort}/docs`);
     });
   })
   .catch((err) => {
