@@ -3,6 +3,7 @@ const db = require('../components/db.js');
 const Film = require('../components/film.js');
 const User = require('../components/user.js');
 const Review = require('../components/review.js');
+const Image = require('../components/image.js');
 const bcrypt = require('bcrypt');
 
 
@@ -55,6 +56,13 @@ exports.getReviewPagination = function (pageNo, filmId) {
 exports.createReview = function (row) {
     var completedReview = (row.completed === 1) ? true : false;
     return new Review(row.fid, row.rid, completedReview, row.reviewDate, row.rating, row.review);
+}
+
+/**
+ *  Image Utility functions
+ */
+exports.createImage = function (row) {
+    return new Image(row.id, row.filmId, row.name);
 }
 
 /**

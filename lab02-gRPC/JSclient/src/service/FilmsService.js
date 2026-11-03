@@ -2,6 +2,7 @@
 const serviceUtils = require('../utils/serviceUtils.js');
 const db = require('../components/db');
 const Film = require('../components/film');
+const imagesService = require('./ImagesService.js');
 
 
 /**
@@ -202,13 +203,17 @@ exports.getInvitedFilmsTotal = function (reviewerId) {
                   if (err)
                       reject(err);
                   else {
-                      const sql3 = 'DELETE FROM films WHERE id = ?';
-                      db.run(sql3, [filmId], (err) => {
-                          if (err)
-                              reject(err);
-                          else
-                              resolve(null);
-                      })
+                      imagesService.deleteFilmImages(filmId)
+                          .then(() => {
+                              const sql3 = 'DELETE FROM films WHERE id = ?';
+                              db.run(sql3, [filmId], (err) => {
+                                  if (err)
+                                      reject(err);
+                                  else
+                                      resolve(null);
+                              })
+                          })
+                          .catch((err) => reject(err));
                   }
               })
           }

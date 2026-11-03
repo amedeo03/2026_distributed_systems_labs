@@ -11,6 +11,10 @@ const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const yaml = require('js-yaml');
 const swaggerUi = require('swagger-ui-express');
+const multer = require('multer');
+const crypto = require('crypto');
+const constants = require('./utils/constants');
+const db = require('./components/db');
 require('./passport-config');
 
 const serverPort = 3001;
@@ -54,6 +58,14 @@ app.use(
 
     validateRequests: false,
 
+    // uploaded files are stored with a temporary name, renamed by the service once the image is created
+    fileUploader: {
+      storage: multer.diskStorage({
+        destination: constants.IMAGES_DIR,
+        filename: (req, file, cb) => cb(null, 'upload-' + crypto.randomUUID()),
+      }),
+    },
+
     validateSecurity: {
       handlers: {
         cookieAuth: (req) => {
@@ -77,6 +89,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-http.createServer(app).listen(serverPort, () => {
-  console.log(`Server listening on http://localhost:${serverPort}\nSwagger UI available at http://localhost:${serverPort}/docs`);
-});
+db.ready
+  .then(() => {
+    http.createServer(app).listen(serverPort, () => {
+      console.log(`Server listening on http://localhost:${serverPort}\nSwagger UI available at http://localhost:${serverPort}/docs`);
+    });
+  })
+  .catch((err) => {
+    console.error('Database initialization failed:', err.message);
+    process.exit(1);
+  });

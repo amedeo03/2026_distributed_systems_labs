@@ -9,3 +9,8 @@ generated/
 .DS_Store
 .vscode/
 .idea/
+# uploaded and converted image files
+src/images/
+
+# local database (created from src/database/schema.sql, seeded from seed.sql with RESET_DB=true)
+src/database/*.db

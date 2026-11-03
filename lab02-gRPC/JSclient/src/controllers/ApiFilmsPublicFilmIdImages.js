@@ -3,9 +3,9 @@
 const fs = require('fs');
 var utils = require('../utils/writer.js');
 const imageService = require('../service/ImagesService.js');
+const constants = require('../utils/constants.js');
 const link = require('./link');
 
-const ACCEPTED_MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
 
 function writeError(res, response) {
   if (response == "NO_FILMS" || response == "NO_PUBLIC_FILM") {
@@ -28,7 +28,7 @@ module.exports.addImage = function addImage(req, res, next) {
   if (file == undefined) {
     return utils.writeJson(res, { errors: [{ 'param': 'Server', 'msg': 'The image file is missing (expected in the "image" multipart field).' }], }, 400);
   }
-  if (!ACCEPTED_MEDIA_TYPES.includes(file.mimetype)) {
+  if (!(file.mimetype in constants.IMAGE_FILE_TYPES)) {
     // discard the file if the uploader already stored it on disk
     if (file.path) {
       fs.unlink(file.path, function () { });

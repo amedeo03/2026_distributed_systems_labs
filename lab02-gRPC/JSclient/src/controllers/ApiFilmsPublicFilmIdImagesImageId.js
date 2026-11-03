@@ -2,15 +2,8 @@
 
 var utils = require('../utils/writer.js');
 const imageService = require('../service/ImagesService.js');
+const constants = require('../utils/constants.js');
 const link = require('./link');
-
-// media types that can be negotiated via the Accept header, mapped to the file type used by the service
-const FILE_TYPES = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/gif': 'gif'
-};
 
 function writeError(res, response) {
   if (response == "NO_FILMS" || response == "NO_PUBLIC_FILM") {
@@ -32,7 +25,7 @@ function writeError(res, response) {
 
 module.exports.getSingleImage = function getSingleImage(req, res, next) {
   // no Accept header (or */*) selects the first entry, i.e., the json image data structure
-  var mediaType = req.accepts(['application/json'].concat(Object.keys(FILE_TYPES)));
+  var mediaType = req.accepts(['application/json'].concat(Object.keys(constants.IMAGE_FILE_TYPES)));
 
   if (!mediaType) {
     return utils.writeJson(res, { errors: [{ 'param': 'Server', 'msg': 'Not acceptable: the supported media types are application/json, image/png, image/jpeg (image/jpg) and image/gif.' }], }, 406);
@@ -49,7 +42,7 @@ module.exports.getSingleImage = function getSingleImage(req, res, next) {
     return;
   }
 
-  imageService.getImageFile(req.params.filmId, req.params.imageId, req.user.id, FILE_TYPES[mediaType])
+  imageService.getImageFile(req.params.filmId, req.params.imageId, req.user.id, constants.IMAGE_FILE_TYPES[mediaType])
     .then(function (filePath) {
       res.set('Content-Type', mediaType);
       res.sendFile(filePath, function (err) {
