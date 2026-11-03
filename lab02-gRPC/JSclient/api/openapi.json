@@ -61,6 +61,14 @@
       "description": "the assignments of review invitations to users"
     },
     {
+      "name": "ApiFilmsPublicFilmIdImages",
+      "description": "the set of images associated to the public film with ID filmId"
+    },
+    {
+      "name": "ApiFilmsPublicFilmIdImagesImageId",
+      "description": "the image with ID imageId associated to the public film with ID filmId"
+    },
+    {
       "name": "ApiUsers",
       "description": "the set of all the users"
     },
@@ -923,6 +931,293 @@
         }
       }
     },
+    "/api/films/public/{filmId}/images": {
+      "post": {
+        "tags": [
+          "ApiFilmsPublicFilmIdImages"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Associate a new image to a public film",
+        "description": "A new image is associated to the public film with ID filmId by uploading the image file. Only the PNG, JPEG and GIF media types are accepted. The service stores the image file with its media type and creates the corresponding image data structure. This operation can only be performed by the owner of the film.",
+        "operationId": "addImage",
+        "parameters": [
+          {
+            "name": "filmId",
+            "in": "path",
+            "description": "ID of the film to which the image must be associated",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The image file to be uploaded (PNG, JPEG or GIF)",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "the image file"
+                  }
+                },
+                "required": [
+                  "image"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Image"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (missing or malformed image file)",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden (the user is not the owner)",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "415": {
+            "description": "Unsupported Media Type (only PNG, JPEG and GIF images are accepted)",
+            "content": {}
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {}
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "ApiFilmsPublicFilmIdImages"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Retrieve the images associated to a public film",
+        "description": "All the image data structures associated to the public film with ID filmId are retrieved (the image files are not included). No pagination mechanism is used, as a limited number of images is expected for each film. This operation can only be performed by the owner of the film or by a user who has been invited to review it.",
+        "operationId": "getImages",
+        "parameters": [
+          {
+            "name": "filmId",
+            "in": "path",
+            "description": "ID of the film whose images must be retrieved",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Images"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden (the user is neither the owner nor a reviewer)",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/api/films/public/{filmId}/images/{imageId}": {
+      "get": {
+        "tags": [
+          "ApiFilmsPublicFilmIdImagesImageId"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Retrieve an image associated to a public film",
+        "description": "The image with ID imageId associated to the public film with ID filmId is retrieved. The Accept header selects the representation: application/json returns the image data structure (without the image file), while image/png, image/jpeg (or image/jpg) and image/gif return the image file in that media type, converting it if it is not stored with the requested media type. Any other media type is rejected. This operation can only be performed by the owner of the film or by a user who has been invited to review it.",
+        "operationId": "getSingleImage",
+        "parameters": [
+          {
+            "name": "filmId",
+            "in": "path",
+            "description": "ID of the film to which the image is associated",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "imageId",
+            "in": "path",
+            "description": "ID of the image to retrieve",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Image"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden (the user is neither the owner nor a reviewer)",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "406": {
+            "description": "Not Acceptable (the requested media type is not supported)",
+            "content": {}
+          },
+          "500": {
+            "description": "Internal Server Error (including media type conversion failures)",
+            "content": {}
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ApiFilmsPublicFilmIdImagesImageId"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Delete an image associated to a public film",
+        "description": "The image with ID imageId associated to the public film with ID filmId is deleted, together with all its stored image files. This operation can only be performed by the owner of the film.",
+        "operationId": "deleteSingleImage",
+        "parameters": [
+          {
+            "name": "filmId",
+            "in": "path",
+            "description": "ID of the film to which the image is associated",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "imageId",
+            "in": "path",
+            "description": "ID of the image to delete",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful operation - No Content",
+            "content": {}
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {}
+          },
+          "403": {
+            "description": "Forbidden (the user is not the owner)",
+            "content": {}
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {}
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {}
+          }
+        }
+      }
+    },
     "/api/films/public/assignments": {
       "post": {
         "tags": [
@@ -1256,6 +1551,11 @@
             "type": "string",
             "format": "uri",
             "description": "the reviews for the film"
+          },
+          "images": {
+            "type": "string",
+            "format": "uri",
+            "description": "the images associated to the film"
           }
         },
         "required": [
@@ -1391,6 +1691,45 @@
         "required": [
           "totalPages"
         ]
+      },
+      "Image": {
+        "description": "schema for Image data structures (the image file itself is not included)",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "description": "path to the JSON Schema to use for the validation of the JSON data structure describing the image"
+          },
+          "id": {
+            "type": "integer",
+            "description": "unique identifier for the image data structure"
+          },
+          "filmId": {
+            "type": "integer",
+            "description": "unique identifier of the film to which the image is associated"
+          },
+          "name": {
+            "type": "string",
+            "description": "name of the image (without file extension)"
+          },
+          "self": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "id",
+          "filmId",
+          "name"
+        ]
+      },
+      "Images": {
+        "description": "schema for Images data structures",
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Image"
+        }
       }
     },
     "securitySchemes": {
